@@ -44,7 +44,7 @@
 (defn mark-draw [boards num]
   (map #(if (= % num) -1  %) boards))
 
-(defn bingo? 
+(defn bingo?
   "shout \"bino!\" (true) when all num are negative"
   [xs]
   (->> (remove neg? xs)
@@ -66,7 +66,7 @@
       (recur (rest nums)
              (conj cols (take-nth 5 nums))))))
 
-(defn winner-board 
+(defn winner-board
   "Returns a board if one line or col is bingo !"
   [board]
   (->> (concat (board-lines board) (board-cols board))
@@ -102,3 +102,39 @@
   (play-bingo boards draw-num))
 ;; => 50008
 
+;; part 2 ==============================
+
+;; because after one draw, more than one board may win and thus
+;; be removed for the boards list
+(defn remove-board [board boards]
+  (apply concat (filter #(not= % board) (partition 25 boards))))
+
+
+(defn update-boards 
+  "Remove all winning boards and returns [updated boards, last winning board]"
+  [boards last-winner]
+  (let [winner-board (find-winner-board boards)]
+    (if (not winner-board)
+      [boards last-winner]
+      (recur (remove-board winner-board boards)
+             winner-board))))
+
+(defn play-bingo-3 [boards [draw & remaining-draws] [last-win-board win-draw]]
+  (let [[updated-boards win-board] (update-boards (mark-draw boards draw) nil)
+        [prec-win-board
+         prec-win-draw] (if win-board
+                          [win-board draw]
+                          [last-win-board win-draw])]
+    (if (empty? remaining-draws)
+      (compute-score prec-win-board prec-win-draw)
+      (recur updated-boards
+             remaining-draws
+             [prec-win-board, prec-win-draw]))))
+
+(let [[draw-num boards] (parse-data test-data)]
+  (play-bingo-3 boards draw-num nil))
+;; => 1924
+
+(let [[draw-num boards] (parse-data (slurp "./resources/puzzle_4.txt"))]
+  (play-bingo-3 boards draw-num nil))
+;; => 17408
