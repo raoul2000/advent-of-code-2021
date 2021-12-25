@@ -24,40 +24,81 @@
 
 ;; part 1 ========
 
-(def data (->> test-data;;(slurp "./resources/puzzle_4.txt")
-               (str/split-lines)))
+;; boards are represented as a list of int
+;; draw num are marked on boards by replacing the existing value with -1
 
-(def  draw-num (->> (str/split (first data) #",")
-                    (map #(Integer/parseInt % 10))))
+(defn parse-data [s]
+  (let [[draw-num-line & board-lines] (str/split-lines s)]
+    [;; create draw num seq
+     (->> (str/split draw-num-line #",")
+          (map #(Integer/parseInt % 10)))
 
-(defn numbers->int-coll [s]
-  (->> (str/split s #" ")
-       (remove str/blank?)
-       (map #(Integer/parseInt % 10))))
+     ;; create boards seq
+     (reduce (fn [result s]
+               (into result (->> (str/split s #" ")
+                                 (remove str/blank?)
+                                 (map #(Integer/parseInt %)))))
+             []
+             board-lines)]))
 
-(numbers->int-coll " 12 65 22 11 26 55 98 78")
+(defn mark-draw [boards num]
+  (map #(if (= % num) -1  %) boards))
 
-(def boards (->> (rest data)
-                 (reduce (fn [result line]
-                           (if (str/blank? line)
-                             (str result "\n")
-                             (str result " " line))) "")
-                 (str/split-lines)
-                 (remove str/blank?)
-                 (map numbers->int-coll)
-                 (map #(partition 5 %))))
-boards
+(defn bingo? 
+  "shout \"bino!\" (true) when all num are negative"
+  [xs]
+  (->> (remove neg? xs)
+       count
+       zero?))
 
-(defn mark-num [boards num] boards)
+(defn board-lines
+  "Returns a seq of lines where each line is a seq of numbers."
+  [board]
+  (partition 5 board))
 
-(defn find-winner-board [boards] nil)
-(defn compute-score [boards draw] 1)
+(defn board-cols
+  "Returns a seq of cols where each col is a seq of numbers."
+  [board]
+  (loop [nums board
+         cols []]
+    (if (= 20 (count nums))
+      cols
+      (recur (rest nums)
+             (conj cols (take-nth 5 nums))))))
 
-(defn play-bingo [boards draw-nums]
-  (let [this-draw     (first draw-nums)
-        boards-played (mark-num boards this-draw)]
-    (if-let [win-board (find-winner-board boards)]
-      (compute-score win-board this-draw)
-      (if (= 1 (count draw-nums))
-        0 ;; no winner - no more num to draw
-        (recur boards-played (rest draw-nums))))))
+(defn winner-board 
+  "Returns a board if one line or col is bingo !"
+  [board]
+  (->> (concat (board-lines board) (board-cols board))
+       (filter bingo?)
+       seq))
+
+(defn find-winner-board [boards]
+  (loop [[board & remaining] (partition 25 boards)]
+    (cond
+      (empty? board)       nil    ;; no more board to test
+      (winner-board board) board  ;; winner board found
+      :else (recur remaining))))  ;; no winner in this iteration
+
+(defn compute-score [board draw]
+  (->> (filter pos? board)
+       (apply +)
+       (* draw)))
+
+(defn play-bingo [boards [draw & remaining-draws]]
+  (when draw
+    (let [updated-boards (mark-draw boards draw)
+          win-board      (find-winner-board updated-boards)]
+      (if win-board
+        (compute-score win-board draw)
+        (recur updated-boards
+               remaining-draws)))))
+
+(let [[draw-num boards] (parse-data test-data)]
+  (play-bingo boards draw-num))
+;; => 4512
+
+(let [[draw-num boards] (parse-data (slurp "./resources/puzzle_4.txt"))]
+  (play-bingo boards draw-num))
+;; => 50008
+
