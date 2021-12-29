@@ -57,3 +57,36 @@
 ;; 4  - 1 = 3  = 1 + 2 + 3 = 6
 ;; etc ..
 ;; cost = 66 + 10 + 6 + 15 + 6 ...
+
+;; Sum of consecutive numbers
+;; =  (n*(n + 1))2
+;; see https://math.stackexchange.com/questions/1100897/sum-of-consecutive-numbers
+
+(defn compute-cost [h-pos target-pos]
+  (let [step (Math/abs (- target-pos h-pos))]
+    (/ (* step (inc step))
+       2)))
+
+;; same as part 1 except for computation of the cost
+(defn solve-part-2 [hpos-data]
+  (loop [[target-hpos & remaining] (range 0 (apply max hpos-data))
+         [_ best-cost :as result] [0 0]]
+    (if (not target-hpos)
+      result
+      (let [cost (apply + (map #(compute-cost % target-hpos) hpos-data))] ;; sum consecutive integers
+        (recur remaining
+               (if (or
+                    (zero? best-cost)
+                    (< cost best-cost))
+                 [target-hpos cost]
+                 result))))))
+
+(comment
+  (time (solve-part-2 (read-data test-data)))
+  ;; "Elapsed time: 1.1429 msecs"
+  ;; [5 168]
+
+  (time (solve-part-2 (read-data (slurp "./resources/puzzle_7.txt"))))
+  ;; "Elapsed time: 3776.7399 msecs"
+  ;; [488 99763899]
+  )
