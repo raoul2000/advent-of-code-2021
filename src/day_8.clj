@@ -39,4 +39,150 @@ gcafb gcf dcaebfg ecagb gf abcdeg gaef cafbge fdbac fegbdc | fgae cfgab fg bagce
   ;; 264 
   )
 
+;; part 2 ==========================
+
+;; line 1 from test data
+;; sig-patterns : "be cfbegad cbdgef fgaecd cgeb fdcge agebfd fecdb fabcd edb"
+;; non ambigous :
+;; cfbegad = 8 (len 7)
+;; be      = 1 (len 2)
+;; edb     = 7 (len 3)
+;; cgeb    = 4 (len 4)
+
+
+;; assign an identifier to each segment
+;;  1111  
+;; 2    3
+;; 2    3
+;;  4444
+;; 5    6
+;; 5    6
+;;  7777
+
+;; define 
+(def display
+  "mapping between ordered segment list and the digit displayed
+   by the seven-segment display" {[1 2 3 5 6 7]   0
+                                  [3 6]           1
+                                  [1 3 4 5 7]     2
+                                  [1 3 4 6 7]     3
+                                  [2 3 4 6]       4
+                                  [1 2 4 6 7]     5
+                                  [1 2 4 5 6 7]   6
+                                  [1 3 6]         7
+                                  [1 2 3 4 5 6 7] 8})
+
+(defn render-display
+  "given un ordered list of segment id, returns the displayed digit"
+  [xs]
+  (get display xs))
+
+(comment
+  (render-display [1 2 4 6 7]))
+
+(defn segment-6 [s m]
+  (assoc m 6 (->> (seq s)
+                  (remove #{\space})
+                  frequencies
+                  (apply max-key val)
+                  key)))
+(def s1 "acedgfb cdfbe gcdfa fbcad dab cefabd cdfgeb eafb cagedb ab")
+
+(comment
+  (segment-6 s1 {}))
+
+(defn length= [n s]
+  (filter #(= n (count %)) (str/split s #" ")))
+
+(comment
+  (first (length= 2 s1)))
+
+(defn segment-3 [s m]
+  (assoc m 3 (let [sig-1 (first (length= 2 s))]
+               (if (= (first sig-1) (get m 6))
+                 (second sig-1)
+                 (first  sig-1)))))
+
+(comment
+  (segment-3 s1 (segment-6 s1 {})))
+
+(defn segment-1 [s m]
+  (assoc m 1 (let [sig-7     (first (length= 3 s))
+                   assigned? (into #{} (vals m))]
+               (first (remove assigned? sig-7)))))
+
+(comment
+  (segment-1 s1 {6 \b, 3 \a}))
+
+;;  1111  
+;; 2    3
+;; 2    3
+;;  4444
+;; 5    6
+;; 5    6
+;;  7777
+
+(defn segment-7 [s m]
+  (assoc m 7 (let [sig-1     (first (length= 2 s))
+                   sig-4     (first (length= 4 s))
+                   sig-7     (first (length= 3 s))
+                   sig-1-4-7 (into #{} (str sig-1 sig-4 sig-7))
+                   sig-len-6 (length= 6 s)]
+               (->> (map (fn [s] (remove sig-1-4-7 s)) sig-len-6)
+                    (filter #(= 1 (count %)))
+                    ffirst))))
+
+(defn segment-4 [s m]
+  (assoc m 4 (let [sig-len-5    (length= 5 s)
+                   segm-1-3-6-7 (into #{} (vals m))]
+               (->> (map #(remove segm-1-3-6-7 %) sig-len-5)
+                    (filter #(= 1 (count %)))
+                    ffirst))))
+
+(defn segment-2 [s m]
+  (assoc m 2 (let [sig-len-5    (length= 5 s)
+                   segm-1-4-6-7 (->> m
+                                     (filter (fn [[seg _]] (#{1 4 6 7} seg)))
+                                     (map second)
+                                     (into #{}))]
+               (->> (map #(remove segm-1-4-6-7 %) sig-len-5)
+                    (filter #(= 1 (count %)))
+                    flatten
+                    (remove (into #{} (vals m)))
+                    first))))
+
+(defn segment-5 [_ m]
+  (assoc m 5 (let [sigs (into #{} (vals m))]
+               (->> (remove sigs "abcdefg")
+                    first))))
+
+(def segments (->> {}
+                   (segment-6 s1)
+                   (segment-3 s1)
+                   (segment-1 s1)
+                   (segment-7 s1)
+                   (segment-4 s1)
+                   (segment-2 s1)
+                   (segment-5 s1)))
+
+(defn sig->segm [m c]
+  (first (keep #(when (= (val %) c)
+                  (key %)) m)))
+(comment
+  (sig->segm segments \d)
+  (sig->segm segments \a)
+  ;;
+  )
+
+(defn display-sig [segments sigs]
+  (->> (map #(sig->segm segments %) sigs)
+       sort
+       render-display))
+
+(comment
+  (display-sig segments "cdfeb")
+  (display-sig segments "fcadb")
+  (display-sig segments "cdbaf"))
+
+
 
