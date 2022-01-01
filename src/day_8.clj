@@ -22,6 +22,9 @@ gcafb gcf dcaebfg ecagb gf abcdeg gaef cafbge fdbac fegbdc | fgae cfgab fg bagce
                          [(str/split (str/trim sig-patterns)  #" ")
                           (str/split (str/trim output-digits) #" ")])))))
 
+(comment
+  (read-data test-data))
+
 (defn non-ambigous-digits? [s]
   (contains? #{2 3 4 7} (count s)))
 
@@ -70,7 +73,8 @@ gcafb gcf dcaebfg ecagb gf abcdeg gaef cafbge fdbac fegbdc | fgae cfgab fg bagce
                                   [1 2 4 6 7]     5
                                   [1 2 4 5 6 7]   6
                                   [1 3 6]         7
-                                  [1 2 3 4 5 6 7] 8})
+                                  [1 2 3 4 5 6 7] 8
+                                  [1 2 3 4 6 7]   9})
 
 (defn render-display
   "given un ordered list of segment id, returns the displayed digit"
@@ -157,7 +161,7 @@ gcafb gcf dcaebfg ecagb gf abcdeg gaef cafbge fdbac fegbdc | fgae cfgab fg bagce
                     first))))
 
 (def segments (->> {}
-                   (segment-6 s1)
+                   (segment-6 s1) ;; must follow this order
                    (segment-3 s1)
                    (segment-1 s1)
                    (segment-7 s1)
@@ -183,6 +187,39 @@ gcafb gcf dcaebfg ecagb gf abcdeg gaef cafbge fdbac fegbdc | fgae cfgab fg bagce
   (display-sig segments "cdfeb")
   (display-sig segments "fcadb")
   (display-sig segments "cdbaf"))
+
+(defn create-segment-signal-map [sigs]
+  (let [s (str/join " "  sigs)]
+    (->> {}
+         (segment-6 s) ;; must follow this order
+         (segment-3 s)
+         (segment-1 s)
+         (segment-7 s)
+         (segment-4 s)
+         (segment-2 s)
+         (segment-5 s))))
+
+(comment
+  (create-segment-signal-map
+   ["be" "cfbegad" "cbdgef" "fgaecd" "cgeb" "fdcge" "agebfd" "fecdb" "fabcd" "edb"]))
+
+(defn solve-line [[hint signals]]
+  (let [segm-sig-map (create-segment-signal-map hint)]
+    (map #(display-sig segm-sig-map %) signals)))
+
+(defn solve-part-2 [xs]
+  (->> (map solve-line xs)
+       (map str/join)
+       (map #(Integer/parseInt %))
+       (apply +)))
+
+(comment
+  (solve-part-2 (read-data test-data))
+  ;; 61229
+  (solve-part-2 (read-data (slurp "./resources/puzzle_8.txt")))
+  ;; 1063760 
+  )
+
 
 
 
