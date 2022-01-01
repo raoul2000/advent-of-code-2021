@@ -62,7 +62,6 @@ gcafb gcf dcaebfg ecagb gf abcdeg gaef cafbge fdbac fegbdc | fgae cfgab fg bagce
 ;; 5    6
 ;;  7777
 
-;; define 
 (def display
   "mapping between ordered segment list and the digit displayed
    by the seven-segment display" {[1 2 3 5 6 7]   0
@@ -82,41 +81,53 @@ gcafb gcf dcaebfg ecagb gf abcdeg gaef cafbge fdbac fegbdc | fgae cfgab fg bagce
   (get display xs))
 
 (comment
-  (render-display [1 2 4 6 7]))
+  (render-display [1 2 4 6 7])
+  ;; => 5
+  (render-display [1 2 3 4 6 7])
+  ;; => 9  
+  )
 
-(defn segment-6 [s m]
-  (assoc m 6 (->> (seq s)
-                  (remove #{\space})
+;; identify segment/signals
+
+(defn segment-6
+  "find signals with max occurencies"
+  [xs m]
+  (assoc m 6 (->> (str/join xs)
                   frequencies
                   (apply max-key val)
                   key)))
-(def s1 "acedgfb cdfbe gcdfa fbcad dab cefabd cdfgeb eafb cagedb ab")
+
+
+(def hint1 ["be" "cfbegad" "cbdgef" "fgaecd" "cgeb" "fdcge" "agebfd" "fecdb" "fabcd" "edb"])
 
 (comment
-  (segment-6 s1 {}))
+  (segment-6 hint1 {}))
 
-(defn length= [n s]
-  (filter #(= n (count %)) (str/split s #" ")))
+(defn length= [n xs]
+  (filter #(= n (count %)) xs))
 
-(comment
-  (first (length= 2 s1)))
-
-(defn segment-3 [s m]
-  (assoc m 3 (let [sig-1 (first (length= 2 s))]
+(defn segment-3 
+  "compare segments for digit '1' with the segment 6 already identified in m. 
+   Digit '1' is the only one displayed with 2 segments"
+  [xs m]
+  (assoc m 3 (let [sig-1 (first (length= 2 xs))] 
                (if (= (first sig-1) (get m 6))
                  (second sig-1)
                  (first  sig-1)))))
 
 (comment
-  (segment-3 s1 (segment-6 s1 {})))
+  (segment-3 hint1 (segment-6 hint1 {})))
 
-(defn segment-1 [s m]
-  (assoc m 1 (let [sig-7     (first (length= 3 s))
+(defn segment-1 
+  "Compare segments for digit '7' and remove the ones already identified in m
+   (seg-6 seg-3). The remaining signal is assigned to segment 1"
+  [xs m]
+  (assoc m 1 (let [sig-7     (first (length= 3 xs))
                    assigned? (into #{} (vals m))]
                (first (remove assigned? sig-7)))))
 
 (comment
-  (segment-1 s1 {6 \b, 3 \a}))
+  (segment-1 hint1 {6 \b, 3 \a}))
 
 ;;  1111  
 ;; 2    3
@@ -126,25 +137,25 @@ gcafb gcf dcaebfg ecagb gf abcdeg gaef cafbge fdbac fegbdc | fgae cfgab fg bagce
 ;; 5    6
 ;;  7777
 
-(defn segment-7 [s m]
-  (assoc m 7 (let [sig-1     (first (length= 2 s))
-                   sig-4     (first (length= 4 s))
-                   sig-7     (first (length= 3 s))
+(defn segment-7 [xs m]
+  (assoc m 7 (let [sig-1     (first (length= 2 xs))
+                   sig-4     (first (length= 4 xs))
+                   sig-7     (first (length= 3 xs))
                    sig-1-4-7 (into #{} (str sig-1 sig-4 sig-7))
-                   sig-len-6 (length= 6 s)]
+                   sig-len-6 (length= 6 xs)]
                (->> (map (fn [s] (remove sig-1-4-7 s)) sig-len-6)
                     (filter #(= 1 (count %)))
                     ffirst))))
 
-(defn segment-4 [s m]
-  (assoc m 4 (let [sig-len-5    (length= 5 s)
+(defn segment-4 [xs m]
+  (assoc m 4 (let [sig-len-5    (length= 5 xs)
                    segm-1-3-6-7 (into #{} (vals m))]
                (->> (map #(remove segm-1-3-6-7 %) sig-len-5)
                     (filter #(= 1 (count %)))
                     ffirst))))
 
-(defn segment-2 [s m]
-  (assoc m 2 (let [sig-len-5    (length= 5 s)
+(defn segment-2 [xs m]
+  (assoc m 2 (let [sig-len-5    (length= 5 xs)
                    segm-1-4-6-7 (->> m
                                      (filter (fn [[seg _]] (#{1 4 6 7} seg)))
                                      (map second)
@@ -160,48 +171,30 @@ gcafb gcf dcaebfg ecagb gf abcdeg gaef cafbge fdbac fegbdc | fgae cfgab fg bagce
                (->> (remove sigs "abcdefg")
                     first))))
 
-(def segments (->> {}
-                   (segment-6 s1) ;; must follow this order
-                   (segment-3 s1)
-                   (segment-1 s1)
-                   (segment-7 s1)
-                   (segment-4 s1)
-                   (segment-2 s1)
-                   (segment-5 s1)))
-
-(defn sig->segm [m c]
+(defn sig->segm 
+  "Returns the segment for a signal given a segment,signal map"
+  [m c]
   (first (keep #(when (= (val %) c)
                   (key %)) m)))
-(comment
-  (sig->segm segments \d)
-  (sig->segm segments \a)
-  ;;
-  )
 
 (defn display-sig [segments sigs]
   (->> (map #(sig->segm segments %) sigs)
        sort
        render-display))
 
-(comment
-  (display-sig segments "cdfeb")
-  (display-sig segments "fcadb")
-  (display-sig segments "cdbaf"))
 
 (defn create-segment-signal-map [sigs]
-  (let [s (str/join " "  sigs)]
     (->> {}
-         (segment-6 s) ;; must follow this order
-         (segment-3 s)
-         (segment-1 s)
-         (segment-7 s)
-         (segment-4 s)
-         (segment-2 s)
-         (segment-5 s))))
+         (segment-6 sigs) ;; must follow this order
+         (segment-3 sigs)
+         (segment-1 sigs)
+         (segment-7 sigs)
+         (segment-4 sigs)
+         (segment-2 sigs)
+         (segment-5 sigs)))
 
 (comment
-  (create-segment-signal-map
-   ["be" "cfbegad" "cbdgef" "fgaecd" "cgeb" "fdcge" "agebfd" "fecdb" "fabcd" "edb"]))
+  (create-segment-signal-map hint1))
 
 (defn solve-line [[hint signals]]
   (let [segm-sig-map (create-segment-signal-map hint)]
@@ -219,7 +212,3 @@ gcafb gcf dcaebfg ecagb gf abcdeg gaef cafbge fdbac fegbdc | fgae cfgab fg bagce
   (solve-part-2 (read-data (slurp "./resources/puzzle_8.txt")))
   ;; 1063760 
   )
-
-
-
-
