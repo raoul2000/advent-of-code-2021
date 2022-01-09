@@ -32,6 +32,13 @@
 
 (def levels (parse-data test-data))
 
+(defn print-levels [xs]
+  (doseq [line (partition 10 xs)]
+    (prn line)))
+
+(comment
+  (print-levels levels))
+
 (defn same-line [p1 p2]
   (= (quot p1 10)
      (quot p2 10)))
@@ -80,6 +87,7 @@
   (nil? (left-pos 0))
   (zero? (left-pos 1))
   (nil? (left-pos 10))
+  (= 38 (left-pos 39))
   (= 10 (left-pos 11)))
 
 
@@ -147,6 +155,285 @@
 (comment
   (adjacent-pos 1)
   (adjacent-pos 10)
-  (adjacent-pos 11)
+  (adjacent-pos 11))
+
+(defn increase-all-energy-level
+  "increment all energy levels in *xs* and returns
+   the updated levels"
+  [xs]
+  (mapv inc xs))
+
+(defn propagate-flash-to-adjacent
+  "increment energy level of all positions adjacent to *pos*"
+  [pos xs]
+  (reduce #(update %1 %2 inc) xs (adjacent-pos pos)))
+
+(comment
+  (do
+    (print-levels levels)
+    (println "---------------------")
+    (print-levels (propagate-flash-to-adjacent 11 levels)))
+  ;;
+  )
+
+(defn select-flashers
+  "Returns the position in *xs* of all values equal greater than 9"
+  [xs]
+  (reduce-kv (fn [r k v]
+               (if (> v 9)
+                 (conj r k)
+                 r)) [] xs))
+
+(comment
+  (select-flashers [1 2 9 4 9])
+  ;;
+  )
+
+(defn increment-by-pos
+  "Increment each values in position *pos-xs* and returns
+   the modified seq"
+  [pos-xs xs]
+  (reduce #(if (< (get %1 %2) 9)
+             (update %1 %2 inc)
+             %1)
+          xs
+          pos-xs))
+
+(comment
+  (increment-by-pos  [0 2] [1 2 3 10]))
+
+(defn read-adjacent-pos [pos-xs]
+  (reduce (fn [r pos]
+            (into r (adjacent-pos pos))) [] pos-xs))
+(comment
+  (read-adjacent-pos [0 1 2])
+  ;;
+  )
+
+(defn select-candidates
+  "Returns all positions in *pos* with a level greater than 9 in
+   the grid *xs*"
+  [xs pos]
+  (filter #(> (get xs %) 9)  pos))
+
+(comment
+  (select-candidates [9 2 9 3 4 5 6] [0 1 2])
+  ;;
+  )
+
+(defn propagate-flash-to-adjacent
+  "increment energy level of all positions adjacent to *pos*
+   and returns the modified seq"
+  [pos xs]
+  (reduce #(update %1 %2 inc) xs (adjacent-pos pos)))
+
+(defn reset-flashers
+  "set to 0 all positions in *pos-xs* and returns the modified grid"
+  [xs pos-xs]
+  (reduce #(assoc %1 %2 0) xs pos-xs))
+
+(comment
+  (reset-flashers [5 6 7 8 9] [0 2])
+  ;;
+  )
+
+(defn flash
+  ([xs candidates]
+   (flash xs candidates #{}))
+  ([xs candidates flashed]
+   (println "begin -------------------")
+   (print-levels xs)
+   (println flashed)
+   (let [elected (remove flashed candidates)]
+     (if (empty? elected)
+       (do
+         (println "end propagation")
+         [(reset-flashers xs flashed) flashed])
+
+       (let [adjacents  (remove flashed (read-adjacent-pos elected))
+             updated-xs (increment-by-pos adjacents xs)]
+         (recur updated-xs
+                (select-candidates updated-xs adjacents) ;; unique adjacent ?
+                (into flashed elected)))))))
+
+
+
+(comment
+  (print-levels levels)
+  (def lv2 (increase-all-energy-level (parse-data "6594254334
+3856965822
+6375667284
+7252447257
+7468496589
+5278635756
+3287952832
+7993992245
+5957959665
+6394862637")))
+
+
+  (select-flashers lv2)
+
+
+  (let [[lv flash-set] (flash lv2 [49])]
+    (print-levels lv)
+    (print (format "flash count = %d" (count flash-set))))
+  ;;
+  )
+
+
+(defn step [[xs _]]
+  (let [grid    (increase-all-energy-level xs)
+        flasher (select-flashers grid)]
+    (flash grid flasher)))
+
+(comment
+  (let [[lv f] (->> (iterate step [levels #{}])
+                    (take 3) ;; step + 1
+                    (last))]
+    (println "final ============")
+    (print-levels lv)
+    (prn f))
+
+
+  (print-levels levels)
+
+  (let [[lv f] (step [levels #{}])]
+    (print-levels lv))
+
+  (let [[lv f] (step (step [levels #{}]))]
+    (print-levels lv)
+    (prn f))
+
+  (step [levels #{}])
+  (step (step [levels #{}]))
+  (increase-all-energy-level [5 4 8 3 1])
+  (select-flashers (increase-all-energy-level [5 4 8 3 1]))
+  (increase-all-energy-level levels)
+  (select-flashers (increase-all-energy-level levels))
+
+
+
+  (do
+    (print-levels levels)
+    (println "---------------------")
+    (let [[lv flasher-pos] (take 2 (iterate step [levels #{}]))]
+      (print-levels lv)
+      (prn flasher-pos)))
+  ;;
+
+
+  ;;
+  )
+
+
+(defn inc-pos
+  "Increment each values in position *pos-xs* and returns
+   the modified seq"
+  [pos-xs xs]
+  (reduce #(update %1 %2 inc)
+          xs
+          pos-xs))
+
+(defn reset-pos
+  [pos-xs xs]
+  (reduce #(assoc %1 %2 0)
+          xs
+          pos-xs))
+
+(defn flash-2
+ ;; ([levels]
+ ;;  (flash-2 levels 0 #{}))
+ ;; ([levels count-flash]
+ ;;  (flash-2 levels count-flash #{}))
+  ([[levels count-flash flashed]]
+   (let [candidates (select-flashers levels)
+         elected    (remove flashed candidates)]
+     (if (empty? elected)
+       [(reset-pos flashed levels)
+        (+ count-flash (count flashed))
+        flashed]
+       (let [all-adjacent       (read-adjacent-pos elected)
+             adjacent-no-flash  (remove flashed all-adjacent)
+             levels-after-flash (->> levels
+                                     (reset-pos elected)
+                                     (inc-pos adjacent-no-flash))]
+         (recur [levels-after-flash
+                 count-flash
+                 (into flashed elected)]))))))
+
+
+(comment
+  (print-levels levels)
+  (def lv2 (increase-all-energy-level (parse-data "6594254334
+3856965822
+6375667284
+7252447257
+7468496589
+5278635756
+3287952832
+7993992245
+5957959665
+6394862637")))
+
+
+  (select-flashers lv2)
+
+
+  (let [[lv flash-count flashers] (flash-2 [lv2 0 #{}])]
+    (print-levels lv)
+    (println "flashers = ")
+    (prn flashers)
+    (print (format "flash count = %d" flash-count)))
+
+  (flash-2 (flash-2 [lv2 0 #{}]))
+
+
+  (last (take 11 (iterate flash-2 [lv2 0 #{}])))
+  ;;
+  )
+(defn step-2 [[xs count-flash]]
+  (flash-2 [(increase-all-energy-level xs)
+            count-flash
+            #{}]))
+
+(comment
+  (def lv2  (parse-data "6594254334
+3856965822
+6375667284
+7252447257
+7468496589
+5278635756
+3287952832
+7993992245
+5957959665
+6394862637"))
   
+  (step-2 (step-2 [lv2 0]))
+  (last (take 10 (iterate step-2 [lv2 0])))
+  ;; => 204 (ok)
+
+  (last (take 100 (iterate step-2 [lv2 0])))
+  ;; => 1656 (ok)
+
+  (def lv3 (parse-data (slurp "./resources/puzzle_11.txt")))
+  (def lv3 (parse-data "8271653836
+7567626775
+2315713316
+6542655315
+2453637333
+1247264328
+2325146614
+2115843171
+6182376282
+2384738675"))
+  
+  (last (take 101 (iterate step-2 [lv3 0])))
+
+  (let [[lv flash-count] (step-2 [lv2 0])]
+    (print-levels lv)
+    (print (format "flash count = %d" flash-count)))
+  
+  
+  ;;
   )
