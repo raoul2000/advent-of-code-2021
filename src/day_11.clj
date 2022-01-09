@@ -150,3 +150,19 @@
   ;; => 1562
   )
 
+;; part 2 ======================================
+
+(defn solve-part-2 [s]
+  (->> (iterate do-step [(parse-data s) 0])
+       (take-while (fn [[_ _ flashed]]
+                     (not= (count flashed) 100)))
+       count))
+
+(comment
+  (solve-part-2 test-data)
+  ;; => 195
+  (solve-part-2 (slurp "./resources/puzzle_11.txt"))
+  ;; => 268
+  )
+
+
