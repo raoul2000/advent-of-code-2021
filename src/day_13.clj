@@ -75,6 +75,17 @@ fold along x=5
     empty-point
     marked-point))
 
+(defn merge-dot-xs [v]
+  (vec (map merge-dots (first v) (second v))))
+
+(comment
+  (merge-dot-xs [[empty-point marked-point empty-point marked-point]
+                 [empty-point empty-point  marked-point marked-point]
+                 ])
+  ;;
+  )
+
+
 (defn create-transparent-paper [col-count line-count]
   (into [] (repeatedly line-count #(into [] (repeat col-count empty-point)))))
 
@@ -88,15 +99,94 @@ fold along x=5
           paper
           points))
 
+(defn cols->lines
+  "Returns a matrix (seq of seq) where the cols in the given matrix
+   become lines in the result matrix.
+   ```
+   (cols->lines [[:a :b]
+                 [ 1  2]])
+   => ([:a 1] [:b 2])
+   ```"
+  [xs]
+  (apply map vector xs))
+
+(comment
+  (cols->lines [[:a :b]
+                [1 2]])
+  ;;
+  )
+(defn split-on-fold
+  "Returns a seq containing 2 items, result of spliting *xs* in 2 seq 
+   before and after item at position fold. Item at position fold ignored.
+
+   ```
+   (split-on-fold 2 [1 2 3 4 5])
+   => [(1 2) (4 5)]
+   ```"
+  [fold xs]
+  (->> ((juxt take  #(drop (inc %1) %2)) fold xs)
+       (map vec)))
+
+(comment
+  (split-on-fold 2 [1 2 3 4 5])
+  ;;
+  )
+
+(defn rpad-xs
+  "Append *nil* to xs so to reach a size of *len* and returns the result
+   ```
+   (rpad-xs [1 2 3] 4)
+   => [1 2 3 nil]
+   ```
+   If len is lower than xs size, returns xs with no change
+   "
+  [xs len]
+  (let [xs-len (count xs)]
+    (if (< len xs-len)
+      xs
+      (into xs (repeat (- len xs-len) nil)))))
+
+
+(defn merge-simple-val [v]
+  (if (some nil? v)
+    (some identity v)
+    v))
+
+(defn fold-xs [fold-index merge-fn xs]
+  (let [[l1 l2] (split-on-fold fold-index xs)
+        rl1     (vec (reverse l1))
+        xs-len  (count xs)]
+    (->> (map vector (rpad-xs rl1 xs-len) (rpad-xs l2 xs-len))
+         (take-while #(not= [nil nil] %))
+         (map merge-fn)
+         reverse
+         vec)))
+
 (comment
   (let [[coords _]             (parse-data test-data)
         [col-count line-count] (paper-size coords)]
     (->> (create-transparent-paper col-count line-count)
          (mark-points coords)
+         ;;cols->lines
+         (fold-xs  2 merge-dot-xs )
+         ;;
          ))
 
-  (mark-points
-   (create-transparent-paper 5 5)
-   [[0 0] [4 4] [1 2]]))
+  (fold-xs  2 merge-simple-val [:a :b :c :d :e :f])
+  (fold-xs  4 merge-simple-val [:a :b :c :d :e :f])
+
+  ;; fold
+  (let [l1 [:a :b :c]
+        l2 [:e :f :g :h]
+        max-len (+ (count l1) (count l2))]
+    (->> (map vector (into l1 (repeat max-len  nil)) (into l2 (repeat  max-len  nil)))
+         (take-while #(not= [nil nil] %))
+         (map (fn [v]
+                (if (some nil? v)
+                  (some identity v)
+                  v)))))
+
+  ;;
+  )
 
 
