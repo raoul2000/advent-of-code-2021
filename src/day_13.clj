@@ -70,21 +70,6 @@ fold along x=5
 
 (def empty-point \_)
 (def marked-point \X)
-(defn merge-dots [d1 d2]
-  (if (= empty-point d1 d2)
-    empty-point
-    marked-point))
-
-(defn merge-dot-xs [v]
-  (vec (map merge-dots (first v) (second v))))
-
-(comment
-  (merge-dot-xs [[empty-point marked-point empty-point marked-point]
-                 [empty-point empty-point  marked-point marked-point]
-                 ])
-  ;;
-  )
-
 
 (defn create-transparent-paper [col-count line-count]
   (into [] (repeatedly line-count #(into [] (repeat col-count empty-point)))))
@@ -132,20 +117,18 @@ fold along x=5
   ;;
   )
 
-(defn rpad-xs
-  "Append *nil* to xs so to reach a size of *len* and returns the result
-   ```
-   (rpad-xs [1 2 3] 4)
-   => [1 2 3 nil]
-   ```
-   If len is lower than xs size, returns xs with no change
-   "
-  [xs len]
-  (let [xs-len (count xs)]
+(defn rpad-with-vect [vec-xs len]
+  (let [xs-len (count vec-xs)
+        vec-len (count (first vec-xs))]
     (if (< len xs-len)
-      xs
-      (into xs (repeat (- len xs-len) nil)))))
+      vec-xs
+      (into vec-xs (repeat (- len xs-len)
+                           (vec (repeat vec-len nil)))))))
 
+(comment
+  (rpad-with-vect [[1 2 :a]
+                   [3 4 :b]]
+                  3))
 
 (defn merge-simple-val [v]
   (if (some nil? v)
@@ -156,37 +139,87 @@ fold along x=5
   (let [[l1 l2] (split-on-fold fold-index xs)
         rl1     (vec (reverse l1))
         xs-len  (count xs)]
-    (->> (map vector (rpad-xs rl1 xs-len) (rpad-xs l2 xs-len))
-         (take-while #(not= [nil nil] %))
+    (->> (map vector (rpad-with-vect rl1 xs-len) (rpad-with-vect l2 xs-len))
          (map merge-fn)
+         (remove (comp nil? first))
          reverse
          vec)))
+
+(defn merge-dots [d1 d2]
+  (cond
+    (and (nil? d1) d2) d2
+    (and (nil? d2) d1) d1
+    (= d1 d2)          d1
+    :else marked-point))
+
+(defn merge-dot-xs [v]
+  (vec
+   (map merge-dots (first v) (second v))))
+
+(comment
+  (fold-xs 2 merge-dot-xs [[\_ \_]
+                           [\X \_]
+                           [\X \X]
+                           [\X \X]])
+  ;;
+  )
+
+(defn fold-x [x paper]
+  (->> (cols->lines paper)
+       (fold-xs x merge-dot-xs)
+       (cols->lines)))
+
+(defn fold-y [y paper]
+  (fold-xs  y merge-dot-xs paper))
 
 (comment
   (let [[coords _]             (parse-data test-data)
         [col-count line-count] (paper-size coords)]
     (->> (create-transparent-paper col-count line-count)
          (mark-points coords)
-         ;;cols->lines
-         (fold-xs  2 merge-dot-xs )
+         (fold-y 7)
+         (fold-x 5)
+         flatten
+         frequencies
+
          ;;
          ))
-
-  (fold-xs  2 merge-simple-val [:a :b :c :d :e :f])
-  (fold-xs  4 merge-simple-val [:a :b :c :d :e :f])
-
-  ;; fold
-  (let [l1 [:a :b :c]
-        l2 [:e :f :g :h]
-        max-len (+ (count l1) (count l2))]
-    (->> (map vector (into l1 (repeat max-len  nil)) (into l2 (repeat  max-len  nil)))
-         (take-while #(not= [nil nil] %))
-         (map (fn [v]
-                (if (some nil? v)
-                  (some identity v)
-                  v)))))
-
   ;;
+  )
+
+(defn solve-part-1 [s]
+  (let [[coords _]             (parse-data s)
+        [col-count line-count] (paper-size coords)]
+    (->> (create-transparent-paper col-count line-count)
+         (mark-points coords)
+         (fold-x 655)
+         flatten
+         frequencies
+         ;;
+         )))
+
+(comment
+  (solve-part-1 (slurp "./resources/puzzle_13.txt"))
+  ;; => 770
+  )
+
+;; part 2 =========================================
+(defn draw-paper [coords]
+  (let [[col-count line-count] (paper-size coords)]
+    (->> (create-transparent-paper col-count line-count)
+         (mark-points coords)
+         ))
+  )
+(defn solve-part-2 [s]
+  (let [[coords _]             (parse-data s)
+        [col-count line-count] (paper-size coords)]
+    (->> (create-transparent-paper col-count line-count)
+         (mark-points coords)
+         (fold-x 655)
+         flatten
+         frequencies
+         ;;
+         ))
   )
 
 
