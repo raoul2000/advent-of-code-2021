@@ -32,13 +32,22 @@ fold along x=5
               [(Integer/parseInt x)
                (Integer/parseInt y)]))))
 
-(defn parse-instructions [xs]
+(defn parse-instructions
+  "Convert all instructions in *xs* into a 2 items array:
+   
+   Example:
+   ```
+   (parse-instructions [\"fold along y=7\" \"fold along x=2\"])
+   => ([\"y\" 7] [\"x\" 2])                                            
+   ```"
+  [xs]
   (map (fn [s]
          (when-let [[_ axis s] (re-matches #"fold along ([xy])=([0-9]+)" s)]
            [axis (Integer/parseInt s)])) xs))
 
+
 (comment
-  (parse-instructions ["fold along y=7"])
+  (parse-instructions ["fold along y=7" "fold along x=2"])
   ;;
   )
 
@@ -61,12 +70,6 @@ fold along x=5
 (comment
   (let [[coords _] (parse-data (slurp "./resources/puzzle_13.txt"))]
     (paper-size coords)))
-
-;; boolean marker --------
-;;(def empty-point false)
-;;(def marked-point true)
-;;(defn merge-dots [d1 d2]
-;;  (or d1 d2))
 
 (def empty-point \_)
 (def marked-point \X)
@@ -113,9 +116,7 @@ fold along x=5
        (map vec)))
 
 (comment
-  (split-on-fold 2 [1 2 3 4 5])
-  ;;
-  )
+  (split-on-fold 2 [1 2 3 4 5]))
 
 (defn rpad-with-vect [vec-xs len]
   (let [xs-len (count vec-xs)
@@ -129,11 +130,6 @@ fold along x=5
   (rpad-with-vect [[1 2 :a]
                    [3 4 :b]]
                   3))
-
-(defn merge-simple-val [v]
-  (if (some nil? v)
-    (some identity v)
-    v))
 
 (defn fold-xs [fold-index merge-fn xs]
   (let [[l1 l2] (split-on-fold fold-index xs)
@@ -160,9 +156,7 @@ fold along x=5
   (fold-xs 2 merge-dot-xs [[\_ \_]
                            [\X \_]
                            [\X \X]
-                           [\X \X]])
-  ;;
-  )
+                           [\X \X]]))
 
 (defn fold-x [x paper]
   (->> (cols->lines paper)
@@ -172,54 +166,57 @@ fold along x=5
 (defn fold-y [y paper]
   (fold-xs  y merge-dot-xs paper))
 
-(comment
-  (let [[coords _]             (parse-data test-data)
-        [col-count line-count] (paper-size coords)]
-    (->> (create-transparent-paper col-count line-count)
-         (mark-points coords)
-         (fold-y 7)
-         (fold-x 5)
-         flatten
-         frequencies
-
-         ;;
-         ))
-  ;;
-  )
-
-(defn solve-part-1 [s]
+(defn solve-part-1 [s fold-instr]
   (let [[coords _]             (parse-data s)
         [col-count line-count] (paper-size coords)]
     (->> (create-transparent-paper col-count line-count)
          (mark-points coords)
-         (fold-x 655)
+         fold-instr
+         
          flatten
-         frequencies
-         ;;
-         )))
+         frequencies)))
 
 (comment
-  (solve-part-1 (slurp "./resources/puzzle_13.txt"))
+  (solve-part-1 test-data (partial fold-y 7))
+  ;; => 17
+  (solve-part-1 (slurp "./resources/puzzle_13.txt") (partial fold-x 655 ))
   ;; => 770
   )
 
 ;; part 2 =========================================
+
 (defn draw-paper [coords]
   (let [[col-count line-count] (paper-size coords)]
     (->> (create-transparent-paper col-count line-count)
-         (mark-points coords)
-         ))
-  )
+         (mark-points coords))))
+
+(defn execute-instrucions [paper [axis v]]
+  (if (= axis "x")
+    (fold-x v paper)
+    (fold-y v paper)))
+
 (defn solve-part-2 [s]
-  (let [[coords _]             (parse-data s)
-        [col-count line-count] (paper-size coords)]
-    (->> (create-transparent-paper col-count line-count)
-         (mark-points coords)
-         (fold-x 655)
-         flatten
-         frequencies
-         ;;
-         ))
+  (let [[coords instructions]             (parse-data s)
+        paper (draw-paper coords)
+        folded-paper (reduce execute-instrucions  paper instructions)]
+    (doseq [line folded-paper]
+      (println line))))
+
+(comment
+  (solve-part-2 test-data)
+  ;; [X X X X X]
+  ;; [X _ _ _ X]
+  ;; [X _ _ _ X]
+  ;; [X _ _ _ X]
+  ;; [X X X X X]
+  ;; [_ _ _ _ _]
+  ;; [_ _ _ _ _]
+
+  (solve-part-2 (slurp "./resources/puzzle_13.txt"))
+  ;; [X X X X _ X X X _ _ X _ _ X _ X X X X _ X _ _ _ _ X X X _ _ X X X _ _ X X X _ _]
+  ;; [X _ _ _ _ X _ _ X _ X _ _ X _ X _ _ _ _ X _ _ _ _ X _ _ X _ X _ _ X _ X _ _ X _]
+  ;; [X X X _ _ X _ _ X _ X _ _ X _ X X X _ _ X _ _ _ _ X _ _ X _ X X X _ _ X _ _ X _]
+  ;; [X _ _ _ _ X X X _ _ X _ _ X _ X _ _ _ _ X _ _ _ _ X X X _ _ X _ _ X _ X X X _ _]
+  ;; [X _ _ _ _ X _ _ _ _ X _ _ X _ X _ _ _ _ X _ _ _ _ X _ _ _ _ X _ _ X _ X _ X _ _]
+  ;; [X X X X _ X _ _ _ _ _ X X _ _ X X X X _ X X X X _ X _ _ _ _ X X X _ _ X _ _ X _]  
   )
-
-
