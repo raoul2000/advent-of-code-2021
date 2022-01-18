@@ -159,8 +159,6 @@ CN -> C")
   (time (solve-part-2a test-data 7))
   ;; "Elapsed time: 189.6861 msecs"
   ;; ok stop now : worst than before
-
-  ;;
   )
 
 (defn solve-part-2b [s step-count]
@@ -168,12 +166,140 @@ CN -> C")
         step-fn                   (do-step-fn insertion-rules)]
     (->> (iterate step-fn polymer)
          (take (inc step-count))
-         ;;last
-         ;;calculate-score
-         )))
+         last
+         calculate-score)))
 
 (comment
-  (solve-part-2b test-data 10)
-  
-  ;;
+  (time (solve-part-2b test-data 10))
+  ;; "Elapsed time: 6.2774 msecs"
+  ;; 1588
+
+  (time (solve-part-2b test-data 15))
+  ;; "Elapsed time: 103.4746 msecs"
+  ;; 56892
+
+  (time (solve-part-2b test-data 20))
+  ;; "Elapsed time: 2914.4404 msecs"
+  ;; 1961318
+
+  (time (solve-part-2b test-data 21))
+  ;; "Elapsed time: 5532.4629 msecs"
+  ;; 3942739
+
+  ;; nope :(
+  ;; we are still spending too much time !
   )
+
+;; ok this one is tricky. Let's find a completely different way
+;; to solve this problem.
+
+;; initial polymer
+(def initial-polymer "NNCB")
+
+;; create initial pair list
+(def initial-pair-coll (map (partial into []) (partition 2 1 initial-polymer)))
+
+;; store pairs in a map where k is the pair and v the occurence
+;; example :
+;; { "NN" 1
+;;   "NC" 2
+;;   etc...
+;; }
+;; let's see that on an example: statr with NNCB which produce the follosing map:
+;;
+;; { "NN" 1
+;;   "NC" 1
+;;   "CB" 1}
+;; The first pair "NN" is replaced with 2 new pairs, based on the insertion rules :
+;; "NC" and "CN".Result is :
+;;
+;; { "NC" 1
+;;   "CN" 1
+;; }
+;; Now let's work on "NC" which splits into "NB" and "BC". 
+;; { "NC" 1
+;;   "CN" 1
+;;   "NB" 1
+;;   "BC" 1
+;; }
+;; and to end thios step, let's work on "CB" which splits into "CH" and "HB"
+;; { "NC" 1
+;;   "CN" 1
+;;   "NB" 1
+;;   "BC" 1
+;;   "CH" 1
+;;   "HB" 1
+;; }
+;; ====> This is our map after step 1. Let's go step 2
+;;
+;; "NC" -> "NB" "BC"
+;; { "NB" 1
+;;   "BC" 1
+;; }
+;; "CN" -> "CC" "CN"
+;; { "NB" 1
+;;   "BC" 1
+;;   "CC" 1
+;;   "CN" 1
+;; }
+;; "NB" => "NB" "BB"
+;; { "NB" 2
+;;   "BC" 1
+;;   "CC" 1
+;;   "CN" 1
+;;   "BB" 1
+;; }
+;; "BC" -> "BB" "BC"
+;; { "NB" 2
+;;   "BC" 2
+;;   "CC" 1
+;;   "CN" 1
+;;   "BB" 2
+;; }
+;; "CH" -> "CB" "HB"
+;; { "NB" 2
+;;   "BC" 2
+;;   "CC" 1
+;;   "CN" 1
+;;   "BB" 2
+;;   "CB" 1
+;;   "HB" 2
+;; }
+;; "HB" -> "HC" "CB"
+;; { "NB" 2
+;;   "BC" 2
+;;   "CC" 1
+;;   "CN" 1
+;;   "BB" 2
+;;   "CB" 2
+;;   "HB" 2
+;;   "HC" 1
+;; }
+;; ====> This is our map after step 1. Let's go step 3
+
+;; NNCB
+(def pair-1 {[\N \N] 1
+             [\N \C] 1
+             [\C \B] 1})
+
+;; NCNBCHB
+(def pair-2 {[\N \C] 1
+             [\C \N] 1
+
+             [\N \B] 1
+             [\B \C] 1
+
+             [\C \H] 1
+             [\H \B] 1})
+
+(def pair-3 {[\N \C] 1
+             [\C \N] 1
+
+             [\N \B] 1
+             [\B \C] 1
+
+             [\C \H] 1
+             [\H \B] 1})
+
+
+
