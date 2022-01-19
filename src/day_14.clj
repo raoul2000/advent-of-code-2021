@@ -205,7 +205,7 @@ CN -> C")
 ;;   "NC" 2
 ;;   etc...
 ;; }
-;; let's see that on an example: statr with NNCB which produce the follosing map:
+;; let's see that on an example: statr with NNCB which produce the following map:
 ;;
 ;; { "NN" 1
 ;;   "NC" 1
@@ -213,48 +213,48 @@ CN -> C")
 ;; The first pair "NN" is replaced with 2 new pairs, based on the insertion rules :
 ;; "NC" and "CN".Result is :
 ;;
-;; { "NC" 1
-;;   "CN" 1
+;; { "NC" 1  <-
+;;   "CN" 1  <-
 ;; }
 ;; Now let's work on "NC" which splits into "NB" and "BC". 
 ;; { "NC" 1
 ;;   "CN" 1
-;;   "NB" 1
-;;   "BC" 1
+;;   "NB" 1  <-
+;;   "BC" 1  <-
 ;; }
-;; and to end thios step, let's work on "CB" which splits into "CH" and "HB"
+;; and to end this step, let's work on "CB" which splits into "CH" and "HB"
 ;; { "NC" 1
 ;;   "CN" 1
 ;;   "NB" 1
 ;;   "BC" 1
-;;   "CH" 1
-;;   "HB" 1
+;;   "CH" 1 <-
+;;   "HB" 1 <-
 ;; }
 ;; ====> This is our map after step 1. Let's go step 2
 ;;
 ;; "NC" -> "NB" "BC"
-;; { "NB" 1
-;;   "BC" 1
+;; { "NB" 1 <-
+;;   "BC" 1 <-
 ;; }
 ;; "CN" -> "CC" "CN"
 ;; { "NB" 1
 ;;   "BC" 1
-;;   "CC" 1
-;;   "CN" 1
+;;   "CC" 1 <-
+;;   "CN" 1 <-
 ;; }
 ;; "NB" => "NB" "BB"
-;; { "NB" 2
+;; { "NB" 2 <-
 ;;   "BC" 1
 ;;   "CC" 1
 ;;   "CN" 1
-;;   "BB" 1
+;;   "BB" 1 <-
 ;; }
 ;; "BC" -> "BB" "BC"
 ;; { "NB" 2
-;;   "BC" 2
+;;   "BC" 2 <-
 ;;   "CC" 1
 ;;   "CN" 1
-;;   "BB" 2
+;;   "BB" 2 <-
 ;; }
 ;; "CH" -> "CB" "HB"
 ;; { "NB" 2
@@ -262,8 +262,8 @@ CN -> C")
 ;;   "CC" 1
 ;;   "CN" 1
 ;;   "BB" 2
-;;   "CB" 1
-;;   "HB" 2
+;;   "CB" 1 <-
+;;   "HB" 2 <-
 ;; }
 ;; "HB" -> "HC" "CB"
 ;; { "NB" 2
@@ -271,35 +271,181 @@ CN -> C")
 ;;   "CC" 1
 ;;   "CN" 1
 ;;   "BB" 2
-;;   "CB" 2
-;;   "HB" 2
+;;   "CB" 2 <-
+;;   "HB" 2 <-
 ;;   "HC" 1
 ;; }
 ;; ====> This is our map after step 1. Let's go step 3
+;; "NB" -> "NB" "BB" but as we have 2 pairs "NB" each one will produce 2 pairs
+;; { "NB" 2 <-
+;;   "BB" 2 <-
+;; }
+;; "BC" -> "BB" "BC" this one also has a value of 2, so we must add 2 "BB" 
+;; and 2 "BC"
+;; { "NB" 2
+;;   "BB" 2 <-
+;;   "BC" 4 <-
+;;   "BB" 2
+;; }
+;; etc ..
+;; let's try to implement this.
+;; first we need to create the insertion rules map
 
-;; NNCB
-(def pair-1 {[\N \N] 1
-             [\N \C] 1
-             [\C \B] 1})
+(defn create-val [k v]
+  [(str (first k) v)
+   (str v (last k))])
 
-;; NCNBCHB
-(def pair-2 {[\N \C] 1
-             [\C \N] 1
+(defn insertion-rules-map-reducer [m s]
+  (let [[k v] (->> (re-matches #"(..) -> (.)" s)
+                   rest)]
+    (assoc m k (create-val k v))))
 
-             [\N \B] 1
-             [\B \C] 1
+(defn build-insertion-rules-map
+  "Creates and returns an insertion rule map from a seq of rules.
+   Example:
+   ```
+   (build-insertion-rules-map [\"CH\" -> \"B\"])
+   => {\"CH\" [\"CB\" \"BH\"]}
+ 
+   ```
+   " [rules]
+  (reduce insertion-rules-map-reducer {} rules))
 
-             [\C \H] 1
-             [\H \B] 1})
+;; now we must create the first pair map given the initial polymer
 
-(def pair-3 {[\N \C] 1
-             [\C \N] 1
+(defn create-initial-pairs-map
+  "Returns a pair map given a polymer.
+   Example:
+   ```
+   (create-pairs-map \"ABCDE\")
+   {\"AB\" 1, \"BC\" 1, \"CD\" 1, \"DE\" 1}                         
+   ```
+   " [polymer]
+  (->> (partition 2 1 polymer)
+       (map #(vector (apply str %) 1))
+       (into {})))
 
-             [\N \B] 1
-             [\B \C] 1
+(defn parse-data-2 [s]
+  (let [[polymer-template _ insertion-rules] (->> (str/split-lines s)
+                                                  (partition-by #{""}))]
+    [((comp create-initial-pairs-map first) polymer-template)
+     (build-insertion-rules-map insertion-rules)]))
 
-             [\C \H] 1
-             [\H \B] 1})
+
+
+;; And now the main function to apply an insertion step on a given pair-map
+;; and return the result
+
+
+
+(defn insert-element [insertion-rules]
+  (fn [m [element cnt]]
+    (if-let [extra-elements (get insertion-rules element)]
+      ;; insertion occurs
+      (reduce (fn [m v]
+                (update m v #(if (nil? %) cnt (+ cnt %)))) m extra-elements)
+      ;; no insertion
+      (assoc m element cnt))))
+
+(comment
+  (reduce (fn [m v]
+            (update m v #(if (nil? %) 2 (+ 2 %)))) {:c 5} [:a :b])
+  ;;
+  )
+
+(defn apply-step [[m insertion-rules]]
+  [(reduce (insert-element insertion-rules) {"B" 1} m)
+   insertion-rules])
+
+(comment
+  (apply-step [{"AB" 2}
+               {"AB" ["AC" "CB"]}])
+
+  (apply-step [{"NN" 1}
+               {"AB" ["AC" "CB"]}])
+
+  (let [[polymer ins-rules] (parse-data-2 test-data)]
+    (->> (apply-step [polymer ins-rules])
+         apply-step
+         ;;apply-step
+         ;;apply-step
+         ))
+  ;;
+  )
+;; Eventually, a function to compute the final score
+;; from a pair map
+;; {"NB" 2, "BC" 2, "CC" 1, "CN" 1, "BB" 2, "CB" 2, "BH" 1, "HC" 1}
+
+(defn calculate-score-2 [pair-map]
+  (->> (map (fn [[pair cnt]] (repeat cnt (first pair))) pair-map)
+       flatten
+       (apply str)
+       ;;count
+       frequencies
+       vals
+       (apply (juxt max min))
+       (apply -)))
+
+(comment
+  (calculate-score-2 {"AB" 2 "CD" 3})
+  ;;
+  )
+
+;; and solve
+
+(defn solve-part-2c [s step-count]
+  (let [[polymer ins-rules] (parse-data-2 s)]
+    (->> (iterate apply-step [polymer ins-rules])
+         (take  (inc step-count))
+         last
+         first
+         ;;calculate-score-2
+         )))
+
+(defn solve-part-2d [s step-count]
+  (let [[polymer ins-rules] (parse-data-2 s)
+        final-poly-map (loop [[_ & remaining] (range 0 (inc step-count))
+                               poly-map polymer]
+                          (if (empty? remaining)
+                            poly-map
+                            (recur remaining
+                                   (first (apply-step [poly-map ins-rules])))))]
+    ;;final-poly-map
+    (calculate-score-2 final-poly-map)
+    ))
+
+(comment
+  (solve-part-2c test-data 1)
+  (solve-part-2c test-data 2)
+  (solve-part-2c test-data 4)
+  (solve-part-2c test-data 10)
+
+  ;; => 1588
+
+  (solve-part-2d test-data 1)
+  (solve-part-2d test-data 2)
+  (solve-part-2d test-data 3)
+  (solve-part-2d test-data 4)
+  (solve-part-2d test-data 10)
+  (solve-part-2d (slurp "./resources/puzzle_14.txt") 10)
+  (solve-part-2d (slurp "./resources/puzzle_14.txt") 20)
+
+
+  (solve-part-2c (slurp "./resources/puzzle_14.txt") 10)
+  (time (solve-part-2c (slurp "./resources/puzzle_14.txt") 20))
+  ;; "Elapsed time: 9741.3214 msecs"
+  ;; 3745243
+
+  (time (solve-part-2d (slurp "./resources/puzzle_14.txt") 20))
+
+  (time (solve-part-2c (slurp "./resources/puzzle_14.txt") 21))
+  ;; "Elapsed time: 19402.9067 msecs"
+  ;; 7540881
+
+
+  ;;
+  )
+
 
 
 
