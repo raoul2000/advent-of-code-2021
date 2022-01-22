@@ -1,5 +1,12 @@
-(ns day-15
+(ns work.day-15
   (:require [clojure.string :as str]))
+
+;; this has been my first steps in solving day 15
+;; once at the end, I realized I had not correctly understood the
+;; problem which is in fact a pathfinding puzzle. Game over !
+;; ...so basically, I keep this file just in case, but really I'll have
+;; to write a brand new solution investigating how to implement
+;; Algorithm A* (see https://www.youtube.com/watch?v=-L-WgKMFuhE)
 
 
 ;; part 1 ================
@@ -174,7 +181,7 @@
   )
 
 (defn find-next-step [path m]
-  (let [cur-point  (get path :current-point)
+  (let [cur-point  ( :current-point path)
         adj-points (adjacent-coords cur-point m)
         next-point (->> (remove #(visited? % path) adj-points)
                         (map #(vector % (read-risk % m)))
@@ -183,29 +190,51 @@
                                     all
                                     res))
                                 [[] 10]))]
-    (if :blocked) ;; to continue ...
-    ))
+    (if next-point
+      (do 
+        (prn next-point)
+        (-> path
+            (assoc ,,, (first next-point) (last next-point))
+            (assoc ,,,  :current-point (first next-point)))
+        )
+      
+      (assoc path :blocked true))))
 
 (comment
   (def m1 (parse-data test-data))
-  m1
+
   (find-next-step {[0 0] 1
                    :current-point [1 2]} m1)
   (find-next-step {[0 0] 1
-                   [0 1] 2
-                   [1 0] 2
-                   :current-point [0 0]} m1)
+                   [0 1] 1
+                   [0 2] 6
+                   :current-point [0 2]} m1)
   ;;
   )
 
 (defn solve-part-1 [s]
   (let [m                     (parse-data s)
         point-is-exit?        (fn-point-is-exit? m)
-        init-path             {[0 0] (read-risk [0 0] m)}]
+        init-path             {[0 0] (read-risk [0 0] m)
+                               :current-point [0 0]}]
+    (prn m)
+    (prn init-path)
     (loop [path init-path]
-      (if (point-is-exit? (last path))
+      (if (or (point-is-exit? (:current-point path))
+              (:blocked path))
         path
         (recur (find-next-step path m))))))
+
+(comment
+  (solve-part-1 test-data)
+
+  (solve-part-1 
+"123
+456
+789")
+
+  ;;
+  )
 
 
 
